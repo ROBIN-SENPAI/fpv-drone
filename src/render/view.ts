@@ -39,6 +39,9 @@ uniform float lens;
 uniform float vignette;
 uniform float grain;
 uniform float time;
+uniform sampler2D tBloomA;
+uniform sampler2D tBloomB;
+uniform float bloomStrength;
 varying vec2 vUv;
 #include <tonemapping_pars_fragment>
 #include <colorspace_pars_fragment>
@@ -61,24 +64,64 @@ void main() {
   vec2 p = vUv * 2.0 - 1.0;
   vec2 pa = vec2(p.x, p.y / aspect);
   vec3 col;
+  vec2 uvg = vUv;
   if (lens > 0.001) {
     // Slight lateral chromatic aberration, as on a real wide-angle lens.
     vec2 sr = lensMap(pa, 1.0 + 0.0022 * lens);
     vec2 sg = lensMap(pa, 1.0);
     vec2 sb = lensMap(pa, 1.0 - 0.0022 * lens);
+    uvg = vec2(sg.x, sg.y * aspect) * 0.5 + 0.5;
     col.r = texture2D(tDiffuse, vec2(sr.x, sr.y * aspect) * 0.5 + 0.5).r;
-    col.g = texture2D(tDiffuse, vec2(sg.x, sg.y * aspect) * 0.5 + 0.5).g;
+    col.g = texture2D(tDiffuse, uvg).g;
     col.b = texture2D(tDiffuse, vec2(sb.x, sb.y * aspect) * 0.5 + 0.5).b;
   } else {
     col = texture2D(tDiffuse, vUv).rgb;
+  }
+  // Bloom: glow around the sun, bright clouds and specular highlights (added in linear light).
+  if (bloomStrength > 0.0) {
+    col += (texture2D(tBloomA, uvg).rgb * 0.55 + texture2D(tBloomB, uvg).rgb * 0.9) * bloomStrength;
   }
   float rc = length(pa) / length(vec2(1.0, 1.0 / aspect));
   col *= 1.0 - vignette * smoothstep(0.35, 1.05, rc) * 0.75;
   col = ACESFilmicToneMapping(col);
   vec4 o = sRGBTransferOETF(vec4(col, 1.0));
+  // Gentle grade: a touch more colour and contrast, like a tuned FPV camera profile.
+  float lum = dot(o.rgb, vec3(0.2126, 0.7152, 0.0722));
+  o.rgb = mix(vec3(lum), o.rgb, 1.1);
+  o.rgb = clamp((o.rgb - 0.5) * 1.05 + 0.5, 0.0, 1.0);
   float n = hash(gl_FragCoord.xy + fract(time) * 917.0) - 0.5;
   o.rgb += n * grain;
   gl_FragColor = vec4(o.rgb, 1.0);
+}`;
+
+const BRIGHT_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D tDiffuse;
+uniform vec2 texel;
+uniform float exposure;
+uniform float threshold;
+varying vec2 vUv;
+void main() {
+  vec3 c = texture2D(tDiffuse, vUv + texel * vec2(-0.5, -0.5)).rgb
+         + texture2D(tDiffuse, vUv + texel * vec2( 0.5, -0.5)).rgb
+         + texture2D(tDiffuse, vUv + texel * vec2(-0.5,  0.5)).rgb
+         + texture2D(tDiffuse, vUv + texel * vec2( 0.5,  0.5)).rgb;
+  c = min(c * 0.25, vec3(12.0)); // clamp fireflies
+  float l = max(c.r, max(c.g, c.b)) * exposure;
+  float w = max(l - threshold, 0.0) / max(l, 1e-4);
+  gl_FragColor = vec4(c * w, 1.0);
+}`;
+
+const BLUR_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D tDiffuse;
+uniform vec2 dir;
+varying vec2 vUv;
+void main() {
+  vec3 c = texture2D(tDiffuse, vUv).rgb * 0.2270270270;
+  c += (texture2D(tDiffuse, vUv + dir * 1.3846153846).rgb + texture2D(tDiffuse, vUv - dir * 1.3846153846).rgb) * 0.3162162162;
+  c += (texture2D(tDiffuse, vUv + dir * 3.2307692308).rgb + texture2D(tDiffuse, vUv - dir * 3.2307692308).rgb) * 0.0702702703;
+  gl_FragColor = vec4(c, 1.0);
 }`;
 
 const LENS_VERT = /* glsl */ `
@@ -113,6 +156,11 @@ export class View {
   private renderScale = 1;
   /** Dynamic-resolution multiplier (1 = native). */
   private resMul = 1;
+  // Bloom chain (half, quarter and eighth resolution) and its full-screen materials.
+  private bloomRT: THREE.WebGLRenderTarget[] = [];
+  private brightMat!: THREE.RawShaderMaterial;
+  private blurMat!: THREE.RawShaderMaterial;
+  private quadMesh!: THREE.Mesh;
   private time = 0;
   private chasePos = new THREE.Vector3();
   private chaseInit = false;
@@ -211,6 +259,7 @@ export class View {
         toneMappingExposure: { value: 0.42 },
         aspect: { value: 1 }, tanH: { value: 1 }, halfH: { value: 1 }, tanHs: { value: 1 },
         lens: { value: 0 }, vignette: { value: 0 }, grain: { value: 0 }, time: { value: 0 },
+        tBloomA: { value: null }, tBloomB: { value: null }, bloomStrength: { value: 0 },
       },
       depthTest: false,
       depthWrite: false,
@@ -221,6 +270,15 @@ export class View {
     const quad = new THREE.Mesh(tri, this.postMat);
     quad.frustumCulled = false;
     this.postScene.add(quad);
+    this.quadMesh = quad;
+    this.brightMat = new THREE.RawShaderMaterial({
+      vertexShader: LENS_VERT, fragmentShader: BRIGHT_FRAG, depthTest: false, depthWrite: false,
+      uniforms: { tDiffuse: { value: null }, texel: { value: new THREE.Vector2() }, exposure: { value: 0.42 }, threshold: { value: 0.85 } },
+    });
+    this.blurMat = new THREE.RawShaderMaterial({
+      vertexShader: LENS_VERT, fragmentShader: BLUR_FRAG, depthTest: false, depthWrite: false,
+      uniforms: { tDiffuse: { value: null }, dir: { value: new THREE.Vector2() } },
+    });
   }
 
   setQuality(q: Quality): void {
@@ -280,6 +338,48 @@ export class View {
     const cw = Math.round(this.width * dpr), ch = Math.round(this.height * dpr);
     const c = this.renderer.domElement;
     if (c.width !== cw || c.height !== ch) this.renderer.setSize(cw, ch, false);
+    this.allocBloom();
+  }
+
+  private allocBloom(): void {
+    if (this.quality === 'low') {
+      for (const t of this.bloomRT) t.dispose();
+      this.bloomRT = [];
+      return;
+    }
+    // [0] half-res bright pass, [1][2] quarter-res blur, [3][4] eighth-res wide blur.
+    const div = [2, 4, 4, 8, 8];
+    const w = this.target.width, h = this.target.height;
+    const same = this.bloomRT.length === 5 && this.bloomRT[0].width === Math.max(2, Math.round(w / 2)) && this.bloomRT[0].height === Math.max(2, Math.round(h / 2));
+    if (same) return;
+    for (const t of this.bloomRT) t.dispose();
+    this.bloomRT = div.map((d) => new THREE.WebGLRenderTarget(Math.max(2, Math.round(w / d)), Math.max(2, Math.round(h / d)), {
+      type: THREE.HalfFloatType, depthBuffer: false, samples: 0,
+    }));
+  }
+
+  private fullscreenPass(mat: THREE.Material, to: THREE.WebGLRenderTarget | null): void {
+    this.quadMesh.material = mat;
+    this.renderer.setRenderTarget(to);
+    this.renderer.render(this.postScene, this.postCam);
+  }
+
+  /** Bright pass + two separable blurs; leaves a tight glow in [2] and a wide one in [4]. */
+  private renderBloom(): void {
+    const rt = this.bloomRT;
+    const b = this.brightMat.uniforms, g = this.blurMat.uniforms;
+    b.tDiffuse.value = this.target.texture;
+    b.texel.value.set(1 / this.target.width, 1 / this.target.height);
+    this.fullscreenPass(this.brightMat, rt[0]);
+    const blur = (src: THREE.WebGLRenderTarget, dst: THREE.WebGLRenderTarget, horizontal: boolean): void => {
+      g.tDiffuse.value = src.texture;
+      g.dir.value.set(horizontal ? 1 / src.width : 0, horizontal ? 0 : 1 / src.height);
+      this.fullscreenPass(this.blurMat, dst);
+    };
+    blur(rt[0], rt[1], true);
+    blur(rt[1], rt[2], false);
+    blur(rt[2], rt[3], true);
+    blur(rt[3], rt[4], false);
   }
 
   /** Set the dynamic-resolution multiplier (0.5..1). */
@@ -439,8 +539,14 @@ export class View {
     const r = this.renderer;
     r.setRenderTarget(this.target);
     r.render(this.scene, cam);
-    r.setRenderTarget(null);
-    r.render(this.postScene, this.postCam);
+    const bloomOn = this.bloomRT.length === 5;
+    if (bloomOn) {
+      this.renderBloom();
+      u.tBloomA.value = this.bloomRT[2].texture;
+      u.tBloomB.value = this.bloomRT[4].texture;
+    }
+    u.bloomStrength.value = bloomOn ? 0.16 : 0;
+    this.fullscreenPass(this.postMat, null);
 
     // Textures are uploaded lazily; re-bake the static shadows once everything is on the GPU.
     if (this.shadowsBaked < 3) {

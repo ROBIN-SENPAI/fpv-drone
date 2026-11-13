@@ -32,6 +32,9 @@ controller, and everything it does falls out of that.
 - **Four airframes**: 5" freestyle (6S), the same with an action camera, 5" racer, 3" (4S).
 - **A flying field**: nine-gate race circuit with lap timer, football pitch, concrete ruin,
   container yard and tunnel, barn, silos, mast and trees. Six start locations.
+- **Cinematic post-processing**: HDR rendering with ACES tone mapping, bloom around the sun and
+  bright highlights, lens distortion with chromatic aberration, vignette, sensor grain and a light
+  colour grade (bloom is skipped on the Low quality setting).
 - **Three cameras**: FPV with adjustable uptilt, FOV and lens distortion; line of sight; chase.
 - **Training aids**: slow motion, throttle limit, crash damage on/off, stick monitor, live
   physics telemetry (`Tab`).
