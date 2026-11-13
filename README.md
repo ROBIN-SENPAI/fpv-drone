@@ -1,46 +1,82 @@
+<div align="center">
+
 # FPV Sim
 
-A physically based FPV quadcopter simulator that runs in the browser. It exists for one
-purpose: to let you build real stick skills without breaking a real quad. Nothing in the
-flight behaviour is scripted or "tuned for fun" - the quad is a rigid body driven by four
-simulated motors and propellers, a battery, the air around it and a Betaflight-style flight
+**A physically based FPV quadcopter simulator that runs in your browser.**
+Build real stick skills without breaking a real quad.
+
+[**▶ Play now**](https://robin-senpai.github.io/fpv-drone/) · [Controls](#controls) · [The physics](#the-physics) · [Run locally](#run-locally)
+
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
+![three.js](https://img.shields.io/badge/three.js-WebGL%202-000000?logo=threedotjs&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
+![Tests](https://img.shields.io/badge/physics%20tests-61-2ea44f)
+![No assets](https://img.shields.io/badge/assets-100%25%20procedural-orange)
+
+![FPV Sim: the quad on the launch pad with the live physics telemetry panel](docs/screenshot.jpg)
+
+</div>
+
+Nothing in the flight behaviour is scripted or "tuned for fun". The quad is a rigid body driven by
+four simulated motors and propellers, a battery, the air around it and a Betaflight-style flight
 controller, and everything it does falls out of that.
 
-**Play online:** https://robin-senpai.github.io/fpv-drone/
+## Highlights
 
-## Run it
+- **Real flight physics** at 4 kHz: blade-element/momentum propellers, brushless motor and ESC
+  model, LiPo with voltage sag, wind and turbulence, ground effect, prop wash.
+- **Betaflight-style flight controller**: Actual rates, PID with feed-forward, Angle / Horizon /
+  Acro, air mode, arming checks, turtle mode. Betaflight's default gains fly the model well.
+- **Plays in any browser**, with nothing to install. Use a keyboard, a gamepad, or a real
+  EdgeTX / OpenTX radio over USB (Gamepad API).
+- **Four airframes**: 5" freestyle (6S), the same with an action camera, 5" racer, 3" (4S).
+- **A flying field**: nine-gate race circuit with lap timer, football pitch, concrete ruin,
+  container yard and tunnel, barn, silos, mast and trees. Six start locations.
+- **Three cameras**: FPV with adjustable uptilt, FOV and lens distortion; line of sight; chase.
+- **Training aids**: slow motion, throttle limit, crash damage on/off, stick monitor, live
+  physics telemetry (`Tab`).
+- **Weather**: wind speed and direction, turbulence, temperature, field elevation.
+- **Fully procedural**: terrain, textures, trees, the drone model and the motor sound are all
+  generated in code. The repository has no binary assets and the app works offline.
 
-Requires Node.js 20.19+ (or 22.12+) and a browser with WebGL 2 (any current Chrome, Edge, Firefox or Safari).
+## Quick start
+
+1. Open **https://robin-senpai.github.io/fpv-drone/** and click **Fly**.
+2. Click the page once so it receives key presses.
+3. Press `Space` to arm, then hold `W` until the quad lifts off (about 20 % throttle).
+4. Steer with the arrow keys and `A` / `D`. Press `R` to reset, `Esc` for the menu.
+
+Arming is refused, as on a real flight controller, when the throttle is not at zero or the quad
+is not roughly level (use turtle mode, or reset).
+
+## Run locally
+
+Requires Node.js 20.19+ (or 22.12+) and a browser with WebGL 2 (any current Chrome, Edge,
+Firefox or Safari).
 
 ```bash
+git clone https://github.com/ROBIN-SENPAI/fpv-drone.git
+cd fpv-drone
 npm install
 npm run dev        # development server on http://localhost:5173
 # or
 npm start          # production build + local server, opens the browser
 ```
 
-Other commands:
-
 | command | what it does |
 | --- | --- |
 | `npm test` | physics test suite (61 tests, a few seconds) |
+| `npm run typecheck` | TypeScript type check |
 | `npm run bench` | prints the performance figures the model produces for each airframe |
 | `npm run dynamics` | prints behaviour in telling manoeuvres (flip, prop wash, turtle, endurance) |
 | `npm run build` | type-check and build to `dist/` (static files, host anywhere) |
 
 ## Controls
 
-**Use a real transmitter if you have one.** Put an EdgeTX / OpenTX radio in "USB Joystick
-(HID)" mode, plug it in, move a stick so the browser notices it, then open
-*Menu → Controller*. Channels 1-4 are assumed to be AETR; if yours differ, press *Detect* next
-to a channel and move that stick. The same panel assigns the arm switch, calibrates stick range
-and shows the raw axes. Settings are stored per device.
+### Keyboard
 
-A gamepad works too (Mode 2: left stick throttle/yaw, right stick pitch/roll, A = arm,
-B = reset, X = flight mode, Y = camera). Because a gamepad's throttle stick springs back to the
-middle, the middle is 0 % throttle by default; you can change that in the Controller panel.
-
-Keyboard, good enough for a first look:
+Good enough for a first look. The keyboard is used whenever you press a key, even if another
+USB device is plugged in.
 
 | key | action |
 | --- | --- |
@@ -57,24 +93,29 @@ Keyboard, good enough for a first look:
 | `H`, `Tab` | toggle OSD / physics telemetry |
 | `Esc`, `P` | menu / pause |
 
-Arming is refused, as on a real flight controller, when the throttle is not at zero or the quad
-is not roughly level (use turtle mode, or reset).
+### Radio transmitter (recommended)
+
+Put an EdgeTX / OpenTX radio in "USB Joystick (HID)" mode, plug it in, move a stick so the
+browser notices it, then open *Menu → Controller*. Channels 1-4 are assumed to be AETR; if yours
+differ, press *Detect* next to a channel and move that stick. The same panel assigns the arm
+switch, calibrates stick range and shows the raw axes. Settings are stored per device.
+
+### Gamepad
+
+Mode 2: left stick throttle/yaw, right stick pitch/roll, `A` = arm, `B` = reset, `X` = flight
+mode, `Y` = camera. Because a gamepad's throttle stick springs back to the middle, the middle
+is 0 % throttle by default; you can change that in the Controller panel.
+
+A device is only used once you actually move it, so an idle controller with a stuck axis can no
+longer block the keyboard.
 
 ## What you can practise
 
 - **Angle, Horizon and Acro** modes. Acro (rate mode) is the real thing; Angle is there so the
   first hour is not just crashing.
-- **Three views**: FPV camera with adjustable uptilt, field of view and lens distortion; line of
-  sight from where the pilot stands; chase camera.
-- **Four airframes**: a 600 g 5" freestyle quad on 6S, the same quad carrying an action camera,
-  a 5" racer, and a gentle 190 g 3" on 4S.
-- **A flying field** with a nine-gate race circuit and lap timer, a football pitch with goals, a
-  derelict three-storey concrete frame, a container yard with a tunnel, an open barn, silos, a
-  mast and trees. Six start locations.
-- **Weather**: wind speed and direction, turbulence, temperature and field elevation.
-- **Training aids**: slow motion, throttle limit, crash damage on/off, stick monitor, live
-  physics telemetry.
 - **Betaflight "Actual" rates** with the usual three numbers per axis - copy them from your quad.
+- Hovering, landing, gates and laps, prop wash and punch-outs, flips and rolls, turtle recovery,
+  flying in wind.
 
 ## The physics
 
@@ -209,9 +250,10 @@ that went undetected when a part was already touching the ground, a step in indu
 between climb and descent, and a motor energy balance that returned too much current to the pack
 on a throttle chop.
 
-## Decisions and assumptions
 
-You asked for no questions, so these are the choices I made:
+## Design choices
+
+These are the main design choices:
 
 - **Browser app (TypeScript, three.js, Vite).** Nothing to install beyond Node, works on any OS,
   and the Gamepad API reads USB radios directly. The physics is plain TypeScript with no
@@ -277,3 +319,15 @@ tools/            bench and diagnostics; headless-browser checks used during dev
 `tools/shot.mjs` and `tools/padtest.mjs` drive the built app in headless Chrome (screenshots; an
 emulated radio through the Gamepad API). They need a local Chrome and `npm run preview` running,
 and are not needed to use the simulator.
+
+## Deployment
+
+Every push to `main` builds the project and publishes it to GitHub Pages through
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). The build is a set of static
+files, so `dist/` can also be hosted anywhere.
+
+## License
+
+No license file is included yet. The project was copied from
+[h4ni0/fable-5.2-projects](https://github.com/h4ni0/fable-5.2-projects/tree/main/fpv-drone),
+so check the original repository before reusing or redistributing the code.
