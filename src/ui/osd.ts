@@ -52,7 +52,7 @@ export class Osd {
     c.fillText(s, x, y);
   }
 
-  draw(sim: Simulation, s: Settings, view: CameraMode, source: string, fps: number): void {
+  draw(sim: Simulation, s: Settings, view: CameraMode, source: string, fps: number, resMul = 1): void {
     const c = this.ctx, w = this.w, h = this.h, u = this.unit;
     c.clearRect(0, 0, w, h);
     if (!s.osd.visible) return;
@@ -199,7 +199,7 @@ export class Osd {
       drawStick(w / 2 + gap / 2, rc.roll, rc.pitch);
     }
 
-    this.text(`${Math.round(fps)} fps`, w - mx, my + u * 5.2, 'right', 0.6, 'rgba(255,255,255,0.55)');
+    this.text(`${Math.round(fps)} fps${resMul < 0.995 ? ` · ${Math.round(resMul * 100)}%` : ''}`, w - mx, my + u * 5.2, 'right', 0.6, 'rgba(255,255,255,0.55)');
   }
 }
 

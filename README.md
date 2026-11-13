@@ -10,7 +10,7 @@ Build real stick skills without breaking a real quad.
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?logo=typescript&logoColor=white)
 ![three.js](https://img.shields.io/badge/three.js-WebGL%202-000000?logo=threedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff?logo=vite&logoColor=white)
-![Tests](https://img.shields.io/badge/physics%20tests-61-2ea44f)
+![Tests](https://img.shields.io/badge/tests-67-2ea44f)
 ![No assets](https://img.shields.io/badge/assets-100%25%20procedural-orange)
 
 ![FPV Sim: the quad on the launch pad with the live physics telemetry panel](docs/screenshot.jpg)
@@ -35,6 +35,10 @@ controller, and everything it does falls out of that.
 - **Three cameras**: FPV with adjustable uptilt, FOV and lens distortion; line of sight; chase.
 - **Training aids**: slow motion, throttle limit, crash damage on/off, stick monitor, live
   physics telemetry (`Tab`).
+- **High, steady frame rate**: dynamic resolution scales the picture down when frames run late and
+  back up when there is headroom, targeting your display's refresh rate (or 90 / 120 / 144 / 240 Hz
+  if you pick one in *Menu → Display & sound*). Physics runs at a fixed 4 kHz, independent of
+  the frame rate, so control feel does not change when frames drop.
 - **Weather**: wind speed and direction, turbulence, temperature, field elevation.
 - **Fully procedural**: terrain, textures, trees, the drone model and the motor sound are all
   generated in code. The repository has no binary assets and the app works offline.
@@ -65,7 +69,7 @@ npm start          # production build + local server, opens the browser
 
 | command | what it does |
 | --- | --- |
-| `npm test` | physics test suite (61 tests, a few seconds) |
+| `npm test` | physics and rendering-logic test suite (67 tests, a few seconds) |
 | `npm run typecheck` | TypeScript type check |
 | `npm run bench` | prints the performance figures the model produces for each airframe |
 | `npm run dynamics` | prints behaviour in telling manoeuvres (flip, prop wash, turtle, endurance) |

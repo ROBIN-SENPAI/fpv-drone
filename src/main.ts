@@ -1,3 +1,4 @@
+import { AdaptiveRes } from './render/adaptive';
 import { buildMap } from './world/map';
 import { Simulation } from './sim/simulation';
 import { getPreset } from './sim/params';
@@ -42,6 +43,8 @@ function boot(): void {
   let paused = true;
   let fps = 60;
   let rcHz = 60;
+  const adaptive = new AdaptiveRes();
+  let lastOsd = 0;
 
   const apply = (kind: ApplyKind): void => {
     switch (kind) {
@@ -56,6 +59,10 @@ function boot(): void {
       case 'env': sim.env.set(settings.env); break;
       case 'graphics':
         if (view.quality !== settings.quality) view.setQuality(settings.quality);
+        if (!settings.autoRes) {
+          adaptive.reset();
+          view.setResolutionMultiplier(1);
+        }
         telemetryEl.style.display = settings.osd.telemetry ? 'block' : 'none';
         break;
       case 'audio': audio.setVolume(settings.volume); break;
@@ -208,6 +215,10 @@ function boot(): void {
     const dt = Math.min(0.1, Math.max(0.0005, (now - last) / 1000));
     last = now;
     fps += (1 / dt - fps) * 0.05;
+    if (settings.autoRes) {
+      const m = adaptive.update(dt, !paused && !document.hidden, settings.targetFps);
+      if (m !== null) view.setResolutionMultiplier(m);
+    }
 
     input.suspended = paused;
     input.poll(dt);
@@ -232,7 +243,12 @@ function boot(): void {
     view.render(sim, settings.view, paused ? 0 : dt, {
       fov: settings.fov, lens: settings.lens, cameraTilt: settings.cameraTilt, gateMarker: settings.osd.gateMarker,
     });
-    osd.draw(sim, settings, settings.view, input.source, fps);
+    // The OSD is 2D-canvas text: drawing it at 144-240 Hz costs real frame time and shows nothing
+    // new, so cap it at ~72 Hz (the canvas keeps its last content between draws).
+    if (now - lastOsd >= 13) {
+      lastOsd = now;
+      osd.draw(sim, settings, settings.view, input.source, fps, view.resolutionMultiplier);
+    }
     audio.update(sim, settings.view === 'fpv' ? null : settings.view === 'los' ? map.pilot : view.camera.position, dt);
 
     if (settings.osd.telemetry) {

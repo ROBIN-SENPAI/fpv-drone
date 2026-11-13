@@ -22,6 +22,10 @@ export interface Settings {
   lens: number;
   view: CameraMode;
   quality: Quality;
+  /** Scale render resolution automatically to hold the target frame rate. */
+  autoRes: boolean;
+  /** Target frame rate for dynamic resolution; 0 = match the display. */
+  targetFps: number;
   volume: number;
   env: EnvSettings;
   damage: boolean;
@@ -46,6 +50,8 @@ export function defaultSettings(): Settings {
     lens: 0.35,
     view: 'fpv',
     quality: 'high',
+    autoRes: true,
+    targetFps: 0,
     volume: 0.6,
     env: { ...DEFAULT_ENV },
     damage: true,

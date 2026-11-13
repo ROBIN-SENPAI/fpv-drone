@@ -469,6 +469,10 @@ export class Menu {
     c.append(this.check('Physics telemetry panel', () => s.osd.telemetry, (v) => { s.osd.telemetry = v; this.save('graphics'); }, 'Live rotor speeds, thrust, induced velocity, vortex-ring state, wind and battery internals.'));
     c.append(el('h3', {}, 'Rendering'));
     c.append(this.select('Quality', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low (integrated graphics)']], () => s.quality, (v) => { s.quality = v; this.save('graphics'); }));
+    c.append(this.check('Dynamic resolution', () => s.autoRes, (v) => { s.autoRes = v; this.save('graphics'); },
+      'Lowers the render resolution when frames run late and raises it again when there is headroom, so the frame rate stays high and flight stays smooth.'));
+    c.append(this.select('Target frame rate', [['0', 'Match display (auto)'], ['60', '60'], ['90', '90'], ['120', '120'], ['144', '144'], ['165', '165'], ['240', '240']],
+      () => String(s.targetFps), (v) => { s.targetFps = Number(v); this.save('graphics'); }));
     c.append(el('h3', {}, 'Sound'));
     c.append(this.slider('Volume', 0, 1, 0.05, () => s.volume, (v) => { s.volume = v; this.save('audio'); }, (v) => `${Math.round(v * 100)} %`));
   }

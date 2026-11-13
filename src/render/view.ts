@@ -111,6 +111,8 @@ export class View {
   private width = 1;
   private height = 1;
   private renderScale = 1;
+  /** Dynamic-resolution multiplier (1 = native). */
+  private resMul = 1;
   private time = 0;
   private chasePos = new THREE.Vector3();
   private chaseInit = false;
@@ -258,7 +260,7 @@ export class View {
   private allocTarget(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : 1.25);
     const q = this.quality === 'low' ? 0.8 : 1;
-    let s = q * this.renderScale;
+    let s = q * this.renderScale * this.resMul;
     let tw = Math.round(this.width * dpr * s), th = Math.round(this.height * dpr * s);
     // Keep the off-screen buffer within sane limits.
     const maxPixels = this.quality === 'high' ? 9.5e6 : this.quality === 'medium' ? 5e6 : 2.6e6;
@@ -267,7 +269,8 @@ export class View {
       const k = Math.sqrt(maxPixels / px);
       tw = Math.round(tw * k); th = Math.round(th * k);
     }
-    const samples = this.quality === 'low' ? 0 : 4;
+    // Multisampling a half-float buffer is the dearest part of the frame: ease off when scaled down.
+    const samples = this.quality === 'low' ? 0 : this.resMul < 0.7 ? 2 : 4;
     if (this.target.width !== tw || this.target.height !== th || this.target.samples !== samples) {
       this.target.dispose();
       this.target = new THREE.WebGLRenderTarget(tw, th, { type: THREE.HalfFloatType, samples, depthBuffer: true });
@@ -277,6 +280,18 @@ export class View {
     const cw = Math.round(this.width * dpr), ch = Math.round(this.height * dpr);
     const c = this.renderer.domElement;
     if (c.width !== cw || c.height !== ch) this.renderer.setSize(cw, ch, false);
+  }
+
+  /** Set the dynamic-resolution multiplier (0.5..1). */
+  setResolutionMultiplier(m: number): void {
+    const v = Math.max(0.4, Math.min(1, m));
+    if (Math.abs(v - this.resMul) < 1e-3) return;
+    this.resMul = v;
+    this.allocTarget();
+  }
+
+  get resolutionMultiplier(): number {
+    return this.resMul;
   }
 
   /** Canvas backing-store size (device pixels). */
