@@ -6,6 +6,8 @@ flight behaviour is scripted or "tuned for fun" - the quad is a rigid body drive
 simulated motors and propellers, a battery, the air around it and a Betaflight-style flight
 controller, and everything it does falls out of that.
 
+**Play online:** https://robin-senpai.github.io/fpv-drone/
+
 ## Run it
 
 Requires Node.js 20.19+ (or 22.12+) and a browser with WebGL 2 (any current Chrome, Edge, Firefox or Safari).
