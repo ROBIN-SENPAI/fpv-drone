@@ -82,6 +82,9 @@ export class Input {
   private kbThrottle = 0;
   private kb = { roll: 0, pitch: 0, yaw: 0 };
   private activePad = -1;
+  private padBaseline: number[] | null = null;
+  private lastPadActivity = 0;
+  private lastKeyActivity = 0;
 
   constructor(target: Window) {
     target.addEventListener('keydown', (e) => this.onKey(e, true));
@@ -102,6 +105,7 @@ export class Input {
     if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const code = e.code;
+    if (down) this.lastKeyActivity = performance.now();
     if (down) {
       if (!e.repeat) {
         switch (code) {
@@ -146,10 +150,12 @@ export class Input {
     }
     this.prevButtons = [];
     this.prevArmSwitch = null;
+    this.padBaseline = null;
   }
 
   selectPad(index: number): void {
     this.activePad = index;
+    this.padBaseline = null;
     this.prevButtons = [];
     this.prevArmSwitch = null;
   }
@@ -201,8 +207,19 @@ export class Input {
 
   /** Sample all devices. Call once per frame. */
   poll(dt: number): void {
-    const pad = this.pad();
+    let pad = this.pad();
     const rc = this.rc;
+    // A connected device only takes over once it is actually moved, and the keyboard takes
+    // over again as soon as a key is pressed. Otherwise any idle HID device with a stuck axis
+    // (e.g. reading 100 % throttle) blocks arming and the keyboard never works.
+    if (pad) {
+      const now = performance.now();
+      if (!this.padBaseline) this.padBaseline = Array.from(pad.axes);
+      const base = this.padBaseline;
+      const moved = pad.axes.some((v, i) => Math.abs(v - (base[i] ?? 0)) > 0.2) || pad.buttons.some((b) => b.pressed);
+      if (moved) this.lastPadActivity = now;
+      if (this.lastPadActivity <= this.lastKeyActivity) pad = null;
+    }
     if (pad) {
       this.source = 'gamepad';
       this.padName = pad.id;
